@@ -1,0 +1,2 @@
+patient_id,tumor_volume_mm3,class1_necrosis_voxels,class1_necrosis_fraction,class2_stroma_voxels,class2_stroma_fraction,class3_rich_voxels,class3_rich_fraction,necrosis_centrality,cluster_diversity,enhancement_heterogeneity
+1003894093_122072000343_20220721,4281.353234678507,11,0.000686684562082527,5030,0.3140021224795555,10978,0.685311192958362,0.20016461470477193,0.9055718719025949,1.56158812052102

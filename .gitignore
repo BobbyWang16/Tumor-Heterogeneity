@@ -1,0 +1,53 @@
+# 大数据目录
+data/
+dataset/
+results/
+archive/
+__pycache__/
+
+# 其他项目/数据
+ITHscore/
+R/
+
+# AI 工具配置
+.serena/
+.spec-workflow/
+.claude/
+
+# DualCT 数据
+DualCT/data/
+
+# QuanTAV 数据
+QuanTAV/test_data/
+QuanTAV/python_output/
+
+# Python
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test.py
+test_*.png
+viz_test.py
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 模型权重 / 大文件
+*.pkl
+*.pth
+*.h5
+*.onnx

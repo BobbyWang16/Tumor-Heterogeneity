@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantav-py"
+version = "0.1.0"
+description = "Python QuanTAV-style tumor-associated vessel feature extraction."
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "scipy",
+  "scikit-image",
+  "matplotlib",
+  "SimpleITK",
+  "nibabel",
+]
+
+[tool.setuptools.packages.find]
+include = ["quantav_py*"]
+
