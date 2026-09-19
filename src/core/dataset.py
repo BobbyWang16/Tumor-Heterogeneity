@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from .io import load_image, load_seg, match_image_mask_pairs
+from .config import DataConfig
 
 
 class DatasetLoader:
@@ -41,12 +42,9 @@ class DatasetLoader:
         base = self.data_root / dataset_name
         self._base = base
 
-        if use_processed and (base / "image_process").exists():
-            self.image_dir = base / "image_process"
-            self.mask_dir = base / "mask_process"
-        else:
-            self.image_dir = base / "image"
-            self.mask_dir = base / "mask"
+        config = DataConfig(dataset_name, data_root=data_root, use_processed=use_processed)
+        self.image_dir = Path(config.image_dir)
+        self.mask_dir = Path(config.mask_dir)
 
         self.clinical_path = base / "clinical.xlsx"
         self.rad_features_path = base / "rad_features.xlsx"
@@ -176,16 +174,19 @@ class DatasetLoader:
 
     @property
     def has_multimask(self) -> bool:
-        return self.multimask_dir.exists()
+        return bool(self.get_observer_mask_dirs())
 
     def get_observer_mask_dirs(self) -> Dict[str, Path]:
         """Return {observer_name: mask_directory} for ICC testing."""
-        if not self.has_multimask:
-            return {}
-        observers = {}
-        for subdir in self.multimask_dir.iterdir():
-            if subdir.is_dir():
-                observers[subdir.name] = subdir
+        observers = {
+            path.name[len("mask_"):]: path
+            for path in sorted(self._base.glob("mask_*"))
+            if path.is_dir() and path.name != "mask_process"
+        }
+        if self.multimask_dir.is_dir():
+            for subdir in sorted(self.multimask_dir.iterdir()):
+                if subdir.is_dir():
+                    observers[subdir.name] = subdir
         return observers
 
     # ------------------------------------------------------------------ #

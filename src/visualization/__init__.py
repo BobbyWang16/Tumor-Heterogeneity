@@ -43,6 +43,19 @@ from .utils import (
 )
 
 from .summary_report import generate_summary_report
+from .algorithm_diagnostics import (
+    collect_score_tables,
+    build_score_matrix,
+    summarize_score_quality,
+    robust_zscore,
+    plot_score_quality_dashboard,
+    plot_score_distributions,
+    plot_model_agreement,
+    plot_robust_score_heatmap,
+    plot_rank_profiles,
+    plot_spatial_model_comparison,
+    generate_algorithm_diagnostics,
+)
 
 __all__ = [
     'visualize_bih_results',
@@ -54,6 +67,12 @@ __all__ = [
     'visualize_ith_fusion_results',
     'visualize_model_results',
     'generate_summary_report',
+    'collect_score_tables', 'build_score_matrix',
+    'summarize_score_quality', 'robust_zscore',
+    'plot_score_quality_dashboard', 'plot_score_distributions',
+    'plot_model_agreement', 'plot_robust_score_heatmap',
+    'plot_rank_profiles', 'plot_spatial_model_comparison',
+    'generate_algorithm_diagnostics',
     # utils
     'setup_figure', 'save_and_close',
     'plot_distribution_with_stats', 'plot_correlation_heatmap',

@@ -126,6 +126,7 @@ def batch_preprocess(
     print(f"  Target spacing: {target_spacing}")
     print(f"  Output: {out_image_dir}, {out_mask_dir}")
 
+    failures = []
     for case_id, img_path, msk_path in tqdm(pairs, desc=f"[{dataset}]"):
         out_img = out_image_dir / (case_id + image_suffix)
         out_msk = out_mask_dir / (case_id + mask_suffix)
@@ -142,5 +143,8 @@ def batch_preprocess(
             )
         except Exception as e:
             tqdm.write(f"  [ERR] {case_id}: {e}")
+            failures.append(case_id)
 
+    if failures:
+        raise RuntimeError(f"{dataset}: preprocessing failed for {len(failures)} case(s): {', '.join(failures)}")
     print(f"[{dataset}] Done.")

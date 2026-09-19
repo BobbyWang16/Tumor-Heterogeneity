@@ -13,8 +13,6 @@ from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.exceptions import ConvergenceWarning
 from scipy import ndimage as ndi
 
-warnings.filterwarnings("ignore")
-
 
 class NSCLCHeterogeneityAnalyzer:
     """
@@ -88,9 +86,8 @@ class NSCLCHeterogeneityAnalyzer:
         neighbor_sum = ndi.convolve(masked_data, kernel,
                                     mode='constant', cval=0)
         # 避免除零: 无有效邻居时保持原值
-        result = np.where(neighbor_count > 0,
-                          neighbor_sum / neighbor_count,
-                          data.astype(np.float32))
+        result = data.astype(np.float32, copy=True)
+        np.divide(neighbor_sum, neighbor_count, out=result, where=neighbor_count > 0)
         return result
 
     def _compute_local_std(self, data, size=3):
@@ -347,9 +344,13 @@ class NSCLCHeterogeneityAnalyzer:
         """
         # delta在四维特征中是第3列 (index 2)
         delta = features[:, 2]
-        means = [delta[labels == lb].mean() for lb in np.unique(labels)]
-        mapping = {old: new for new, old in enumerate(np.argsort(means))}
-        return np.vectorize(mapping.get)(labels).astype(int)
+        unique, inverse = np.unique(labels, return_inverse=True)
+        if unique.size == 0:
+            return np.empty(0, dtype=int)
+        means = np.bincount(inverse, weights=delta) / np.bincount(inverse)
+        ranks = np.empty(unique.size, dtype=int)
+        ranks[np.argsort(means, kind="stable")] = np.arange(unique.size)
+        return ranks[inverse]
 
     def apply_necrosis_prior(self, labels_1d, interior_q=0.4,
                              keep_top_k=1, kernel_size=3):
@@ -391,7 +392,7 @@ class NSCLCHeterogeneityAnalyzer:
         kernel[k // 2, k // 2, k // 2] = 0
 
         # --- Step 1: 边界坏死重分配 ---
-        nec = (labels3d == 0)
+        nec = (labels3d == 0) & self.mask
         boundary_nec = nec & (dist < d_thr)
         if np.any(boundary_nec):
             n1 = ndi.convolve((labels3d == 1).astype(int), kernel, mode='constant')
@@ -399,7 +400,7 @@ class NSCLCHeterogeneityAnalyzer:
             labels3d[boundary_nec] = np.where(n1[boundary_nec] >= n2[boundary_nec], 1, 2)
 
         # --- Step 2: 连通域过滤 ---
-        nec = (labels3d == 0)
+        nec = (labels3d == 0) & self.mask
         if np.any(nec):
             struct = ndi.generate_binary_structure(3, 1)
             cc, num = ndi.label(nec, structure=struct)

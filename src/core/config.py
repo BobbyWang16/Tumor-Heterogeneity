@@ -20,16 +20,24 @@ class DataConfig:
     mask_suffix: str = ".nii.gz"
 
     @property
+    def processed_available(self) -> bool:
+        base = os.path.join(self.data_root, self.dataset)
+        return self.use_processed and all(
+            os.path.isdir(os.path.join(base, name))
+            for name in ("image_process", "mask_process")
+        )
+
+    @property
     def image_dir(self) -> str:
         base = os.path.join(self.data_root, self.dataset)
-        if self.use_processed and os.path.exists(os.path.join(base, "image_process")):
+        if self.processed_available:
             return os.path.join(base, "image_process")
         return os.path.join(base, "image")
 
     @property
     def mask_dir(self) -> str:
         base = os.path.join(self.data_root, self.dataset)
-        if self.use_processed and os.path.exists(os.path.join(base, "mask_process")):
+        if self.processed_available:
             return os.path.join(base, "mask_process")
         return os.path.join(base, "mask")
 

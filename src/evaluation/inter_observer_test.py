@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from src.core import DataConfig, load_image, load_seg, match_image_mask_pairs
+from src.core import DatasetLoader, load_image, load_seg, match_image_mask_pairs
 from src.models import MODEL_REGISTRY
 from src.evaluation.icc_analysis import run_icc_workflow
 
@@ -52,10 +52,10 @@ def extract_features_for_observer(
         DataFrame: 每行一个病例，每列一个特征
     """
     image_dir = Path(data_root) / dataset_name / "image"
-    mask_dir = Path(data_root) / dataset_name / f"mask_{observer}"
-
-    if not mask_dir.exists():
-        raise FileNotFoundError(f"Mask directory not found: {mask_dir}")
+    loader = DatasetLoader(dataset_name, data_root=data_root, use_processed=False)
+    mask_dir = loader.get_observer_mask_dirs().get(observer)
+    if mask_dir is None:
+        raise FileNotFoundError(f"Mask directory not found for observer: {observer}")
 
     pairs = match_image_mask_pairs(str(image_dir), str(mask_dir))
     if not pairs:

@@ -22,6 +22,9 @@ QuanTAV/test_data/
 QuanTAV/python_output/
 
 # Python
+.venv/
+.pytest_cache/
+docs/_build/
 *.pyc
 *.pyo
 *.egg-info/
@@ -39,6 +42,7 @@ build/
 Thumbs.db
 
 # 测试文件
+test/
 test.py
 test_*.png
 viz_test.py

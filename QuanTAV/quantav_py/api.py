@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -10,8 +9,7 @@ from .config import QuantavParams
 from .features import FeatureResult, compute_quantav_features
 from .io import load_volume, save_features_csv
 from .preprocess import ensure_same_shape, resample_to_spacing
-from .roi import RoiResult, prepare_roi
-from .visualization import create_visualizations
+from .roi import prepare_roi
 
 
 def analyze_case(
@@ -46,6 +44,8 @@ def analyze_case(
         out_dir = Path(output_dir)
         save_features_csv(out_dir / f"{case_id}_features.csv", result.feature_names, result.features, case_id)
         if params.create_visualizations:
+            from .visualization import create_visualizations
+
             paths = create_visualizations(
                 roi.image,
                 roi.tumor_mask,
@@ -74,6 +74,9 @@ def _resolve_inputs(
     vessel_arr, vessel_spacing = _load_required(vessel_mask)
 
     spacing = tumor_spacing or vessel_spacing or image_spacing or params.normalized_spacing()
+    for name, source_spacing in (("image", image_spacing), ("tumor_mask", tumor_spacing), ("vessel_mask", vessel_spacing)):
+        if source_spacing is not None and not np.allclose(source_spacing, spacing):
+            raise ValueError(f"{name} spacing {source_spacing} does not match {spacing}; align inputs first")
     params = replace(params, spacing=spacing)
 
     ensure_same_shape(*(a for a in [image_arr, tumor_arr, vessel_arr] if a is not None))
@@ -92,15 +95,14 @@ def _resolve_inputs(
 def _load_optional(value: np.ndarray | str | Path | None) -> tuple[np.ndarray | None, tuple[float, float, float] | None]:
     if value is None:
         return None, None
-    if isinstance(value, (str, Path)):
-        arr, spacing, _ = load_volume(value)
-        return np.asarray(arr), spacing
-    return np.asarray(value), None
+    return _load_required(value)
 
 
 def _load_required(value: np.ndarray | str | Path) -> tuple[np.ndarray, tuple[float, float, float] | None]:
     if isinstance(value, (str, Path)):
-        arr, spacing, _ = load_volume(value)
+        arr, spacing, metadata = load_volume(value)
+        if isinstance(metadata, dict) and metadata.get("format") == "npy":
+            spacing = None  # NumPy files have no physical spacing metadata.
         return np.asarray(arr), spacing
     return np.asarray(value), None
 

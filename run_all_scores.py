@@ -96,12 +96,32 @@ def run_icc_test(
     cmd = [
         sys.executable, "-m", "src.evaluation.inter_observer_test",
         "--dataset", dataset,
+        "--data-dir", data_dir,
         "--observers", *observers,
         "--output", str(Path(out_dir) / "ICC"),
     ]
     if models:
         cmd.extend(["--models", *models])
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
+
+
+def run_survival_analysis(
+    dataset: str,
+    data_dir: str = "./data",
+    out_dir: str = "./results",
+    models: Optional[List[str]] = None,
+) -> dict:
+    """Generate case-aligned Cox statistics and Kaplan-Meier plots."""
+    from src.survival import generate_survival_report
+
+    dataset_results = Path(out_dir) / dataset
+    return generate_survival_report(
+        dataset_name=dataset,
+        data_root=data_dir,
+        results_dir=dataset_results,
+        out_dir=dataset_results / "survival",
+        models=models,
+    )
 
 
 def main():
@@ -126,7 +146,7 @@ Examples:
                         help=f"Models to run. Available: {', '.join(MODEL_REGISTRY.keys())}")
     parser.add_argument("--data-dir", type=str, default=None)
     parser.add_argument("--out-dir", type=str, default=None)
-    parser.add_argument("--visualize", action="store_true", default=None,
+    parser.add_argument("--visualize", action=argparse.BooleanOptionalAction, default=None,
                         help="Generate visualization plots")
     parser.add_argument("--survival", action="store_true", help="Run survival analysis")
     parser.add_argument("--icc-test", action="store_true", default=None,
@@ -137,7 +157,7 @@ Examples:
 
     # Merge CONFIG defaults with CLI overrides
     dataset = args.dataset or CONFIG.get("dataset")
-    all_datasets = args.all_datasets or CONFIG.get("all_datasets", False)
+    all_datasets = args.all_datasets or (args.dataset is None and (CONFIG.get("all_datasets", False) or dataset is None))
     if not dataset and not all_datasets:
         dataset = CONFIG.get("dataset")
 
@@ -177,9 +197,16 @@ Examples:
             for name, path in results.items():
                 status = "OK" if path else "FAIL"
                 print(f"  [{status}] {name.upper()}: {path}")
+                if not path:
+                    overall_success = False
 
             if icc_test:
                 run_icc_test(dataset, data_dir, out_dir, models)
+
+            if args.survival:
+                print("\n[Step 2] Running survival analysis...")
+                survival_paths = run_survival_analysis(dataset, data_dir, out_dir, models)
+                print(f"  [OK] Generated {len(survival_paths)} survival artifacts")
 
         except Exception as e:
             print(f"\n[ERROR] Failed: {e}")

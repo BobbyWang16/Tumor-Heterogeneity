@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Optional, Sequence, Tuple
 
 
@@ -55,7 +56,6 @@ def _as_spacing(value: Sequence[float], name: str) -> Spacing:
     if len(value) != 3:
         raise ValueError(f"{name} must contain exactly three values")
     spacing = tuple(float(v) for v in value)
-    if any(v <= 0 for v in spacing):
-        raise ValueError(f"{name} values must be positive")
+    if any(not isfinite(v) or v <= 0 for v in spacing):
+        raise ValueError(f"{name} values must be finite and positive")
     return spacing  # type: ignore[return-value]
-

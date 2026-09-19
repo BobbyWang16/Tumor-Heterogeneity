@@ -5,13 +5,11 @@ Provides a unified interface to run any model, generate visualizations,
 and create summary reports.
 """
 
-import os
 from pathlib import Path
 from typing import List, Optional
 
 from src.core import DataConfig
 from src.models import MODEL_REGISTRY
-from src.visualization import model_visualizers, summary_report
 
 
 class ModelRunner:
@@ -19,24 +17,22 @@ class ModelRunner:
 
     def __init__(self, data_cfg: DataConfig, models: Optional[List[str]] = None):
         self.data_cfg = data_cfg
-        self.models = models or list(MODEL_REGISTRY.keys())
+        self.models = list(MODEL_REGISTRY) if models is None else list(dict.fromkeys(models))
+        invalid = [name for name in self.models if name not in MODEL_REGISTRY]
+        if invalid:
+            raise ValueError(f"Unknown models: {invalid}")
 
     def run(self, visualize: bool = False) -> dict:
         """Run all configured models."""
         results = {}
         for name in self.models:
-            ModelClass = MODEL_REGISTRY[name]
-            model = ModelClass()
-            csv_path = model.run_and_save(self.data_cfg)
-            results[name] = csv_path
-
-            if visualize and csv_path:
-                viz_dir = Path(self.data_cfg.output_dir) / name / "viz"
-                model_visualizers.visualize_model_results(name, csv_path, str(viz_dir), self.data_cfg.dataset)
+            results[name] = self.run_single(name, visualize=visualize)
 
         if visualize:
+            from src.visualization import generate_summary_report
+
             summary_dir = Path(self.data_cfg.output_dir) / "summary"
-            summary_report.generate_summary_report(
+            generate_summary_report(
                 self.data_cfg.dataset,
                 self.data_cfg.output_dir,
                 str(summary_dir)
@@ -53,6 +49,8 @@ class ModelRunner:
         csv_path = model.run_and_save(self.data_cfg)
 
         if visualize and csv_path:
+            from src.visualization import model_visualizers
+
             viz_dir = Path(self.data_cfg.output_dir) / model_name / "viz"
             model_visualizers.visualize_model_results(model_name, csv_path, str(viz_dir), self.data_cfg.dataset)
 

@@ -10,9 +10,6 @@ Batch processing, I/O, and result saving are handled by the base class.
 
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
-import gc
-import os
-import time
 import warnings
 from pathlib import Path
 
@@ -98,54 +95,42 @@ class BaseHeterogeneityModel(ABC):
         iterator = tqdm(pairs, desc=f"[{self.name.upper()}]") if self.cfg.verbose else pairs
 
         for case_id, img_path, msk_path in iterator:
+            vol = msk = result = None
             try:
                 vol, _ = load_image(img_path)
                 msk, _ = load_seg(msk_path)
                 result = self.compute(vol, msk)
-                row = {"case_id": case_id, **result}
-                results.append(row)
+                results.append(self._result_to_row({"case_id": case_id, **result}))
             except Exception as exc:
                 if self.cfg.verbose:
                     tqdm.write(f"  [ERR] {case_id}: {exc}")
-                results.append({"case_id": case_id, "error": str(exc)})
+                results.append(self._result_to_row({"case_id": case_id, "error": str(exc)}))
             finally:
-                # Explicitly free large arrays to prevent memory accumulation
-                for var in ("vol", "msk", "result", "row"):
-                    if var in locals():
-                        del locals()[var]
-                gc.collect()
+                # Keep only table fields; do not retain per-case 3D maps.
+                del vol, msk, result
 
-        return self._results_to_dataframe(results)
+        return pd.DataFrame(results)
 
     def _results_to_dataframe(self, results: List[dict]) -> pd.DataFrame:
         """Convert list of result dicts to a flat DataFrame."""
-        rows = []
-        for r in results:
-            row = {"case_id": r.get("case_id", "")}
-            row["score"] = r.get("score", np.nan)
+        return pd.DataFrame([self._result_to_row(r) for r in results])
 
-            # flatten features dict
-            feats = r.get("features", {})
-            if isinstance(feats, dict):
-                for k, v in feats.items():
-                    row[f"feat_{k}"] = v
-            elif isinstance(feats, pd.DataFrame):
-                for k, v in feats.items():
-                    row[f"feat_{k}"] = v
-
-            # details dict (optional)
-            details = r.get("details", {})
-            if isinstance(details, dict):
-                for k, v in details.items():
-                    if isinstance(v, (int, float, str)):
-                        row[f"detail_{k}"] = v
-
-            if "error" in r:
-                row["error"] = r["error"]
-
-            rows.append(row)
-
-        return pd.DataFrame(rows)
+    @staticmethod
+    def _result_to_row(r: dict) -> dict:
+        """Flatten one result without retaining spatial maps."""
+        row = {"case_id": r.get("case_id", ""), "score": r.get("score", np.nan)}
+        feats = r.get("features", {})
+        if isinstance(feats, (dict, pd.DataFrame)):
+            for key, value in feats.items():
+                row[f"feat_{key}"] = value
+        details = r.get("details", {})
+        if isinstance(details, dict):
+            for key, value in details.items():
+                if isinstance(value, (int, float, str)):
+                    row[f"detail_{key}"] = value
+        if "error" in r:
+            row["error"] = r["error"]
+        return row
 
     # ------------------------------------------------------------------ #
     #  Convenience: run + save
@@ -154,6 +139,8 @@ class BaseHeterogeneityModel(ABC):
     def run_and_save(self, data_cfg: DataConfig, csv_name: Optional[str] = None) -> str:
         """Run batch_compute and save results to CSV."""
         df = self.batch_compute(data_cfg)
+        if df.empty:
+            raise ValueError(f"No cases processed for {data_cfg.dataset}")
 
         out_dir = Path(data_cfg.output_dir) / self.name
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -161,6 +148,8 @@ class BaseHeterogeneityModel(ABC):
         csv_name = csv_name or f"{self.name}_{data_cfg.dataset}.csv"
         out_path = out_dir / csv_name
         df.to_csv(out_path, index=False)
+        if not np.isfinite(pd.to_numeric(df["score"], errors="coerce")).any():
+            raise ValueError(f"No finite scores for {self.name}; see {out_path}")
 
         if self.cfg.verbose:
             print(f"[{self.name.upper()}] Saved {len(df)} rows to {out_path}")

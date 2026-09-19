@@ -15,6 +15,10 @@
 
 import argparse
 import sys
+from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.core import batch_preprocess
 
@@ -41,6 +45,7 @@ def main():
         print("[ERROR] 请指定 --datasets 或 --all")
         return 1
 
+    failed = False
     for dataset in datasets:
         try:
             batch_preprocess(
@@ -52,8 +57,9 @@ def main():
             )
         except Exception as e:
             print(f"[ERROR] {dataset}: {e}")
+            failed = True
 
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
